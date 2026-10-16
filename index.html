@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Крест">
+<meta name="theme-color" content="#0a0a0a">
+<title>Крест — День 1</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #0a0a0a;
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #cfc8b8;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  #game {
+    position: fixed;
+    inset: 0;
+    padding: calc(env(safe-area-inset-top) + 24px) 20px calc(env(safe-area-inset-bottom) + 24px) 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    background: radial-gradient(ellipse at top, #1a1512 0%, #0a0a0a 75%);
+  }
+
+  #ending-title {
+    font-size: 15px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #b8874a;
+    text-align: center;
+    margin-bottom: 14px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+
+  #text {
+    font-size: 16.5px;
+    line-height: 1.6;
+    white-space: pre-line;
+    margin-bottom: 22px;
+    opacity: 0;
+    transition: opacity 0.45s ease;
+    max-height: 58vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #choices {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .choice {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(207, 200, 184, 0.22);
+    color: #cfc8b8;
+    font-family: inherit;
+    font-size: 15.5px;
+    padding: 15px 18px;
+    border-radius: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.1s;
+    opacity: 0;
+    animation: fadeIn 0.4s ease forwards;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .choice:active {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(207, 200, 184, 0.55);
+    transform: scale(0.985);
+  }
+
+  .choice.restart {
+    text-align: center;
+    border-color: rgba(184, 135, 74, 0.6);
+    color: #b8874a;
+    margin-top: 6px;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+  <div id="game">
+    <div id="ending-title"></div>
+    <p id="text"></p>
+    <div id="choices"></div>
+  </div>
+
+<script>
+/* ============================================================
+   ДВИЖОК ВИЗУАЛЬНОЙ НОВЕЛЛЫ
+   ============================================================ */
+
+// Состояние игры — все переменные из исходного файла
+function initialState() {
+  return {
+    money: 0,
+    has_pick: false,
+    prayer_count: 0,
+    trained_body: 0,
+    helped_deed: false,
+    contacted_vetrov: false,
+    agreed_ryzhiy: 0,
+    s_contact_lawyer: false,
+    s_proof_hint: false
+  };
+}
+
+let state = initialState();
+
+// Подстановка {money}, {has_pick} и т.п. в текст
+function fmt(s, key) {
+  const v = s[key];
+  if (v === undefined) return '?';
+  if (typeof v === 'boolean') return v ? 'да' : 'нет';
+  return String(v);
+}
+
+function interpolate(text, s) {
+  return text.replace(/\{(\w+)\}/g, (_, k) => fmt(s, k));
+}
+
+/* ============================================================
+   СЦЕНАРИЙ
+   Каждая сцена:
+     text    — строка или функция от state
+     onEnter — эффект при входе в сцену (изменяет state)
+     choices — массив кнопок
+     next    — авто-переход (строка или функция)
+     ending  — финальная сцена
+   ============================================================ */
+
+const scenes = {
+
+  start: { next: 'day1_morning' },
+
+  day1_morning: {
+    text: `[05:55] Лязг засова. Голос надзирателя: «Подъём, шваль!»
+
+Вы лежите на матрасе. Сосед — старик с тату «НЕ ЗАБУДУ» — сидит на корточках.`,
+    choices: [
+      { label: 'Начать', next: 'morning_choice' }
+    ]
+  },
+
+  morning_choice: {
+    text: `Внутренний голос: «Через месяц — пуля. Ты невиновен. Никто не верит.»`,
+    next: 'breakfast'
+  },
+
+  breakfast: {
+    text: `[06:15] Коридор. Очередь за кашей. Вы садитесь напротив угрюмого мужика с рассечённой бровью — Баклана.
+
+Баклан: «Новенький? За что?»
+
+Вы: «Не убивал я никого. Осудили липовые свидетели.»
+
+Баклан усмехается: «Здесь все святые. Слушай, хочешь совет? Охранников три шкуры. Сидоров — не подкупишь, идейный. Петров — мелкий жлоб, но если дашь меньше сотни, он тебя же заложит. А Ветров... Ветров мутит. У него цена за "помощь" — 200 рублей. Может и записку вывезти, и нож передать.»`,
+    choices: [
+      { label: 'Спросить: «Откуда такие сведения?»', next: 'barklan_offence' },
+      { label: 'Спросить: «А как с Ветровым связаться?»', next: 'barklan_contact' },
+      { label: 'Промолчать', next: 'barklan_silence' }
+    ]
+  },
+
+  barklan_offence: {
+    text: 'Баклан зыркает и замолкает.',
+    next: 'work_cell'
+  },
+
+  barklan_contact: {
+    text: `Баклан кивает на туалет: «После ужина зайди в третью кабинку. Там будет записка. Цена вопроса — 50 рублей за контакт».`,
+    onEnter: (s) => { s.contacted_vetrov = true; },
+    next: 'work_cell'
+  },
+
+  barklan_silence: {
+    text: 'Баклан хмыкает и отворачивается.',
+    next: 'work_cell'
+  },
+
+  work_cell: {
+    text: `[07:00] Работа в камере. Три часа шитья мешков. Рядом старик (Дед).
+
+Дед: «Ты, смотрю, не местный. Хочешь, помогу? Я знаю, где достать отмычку от камеры. Но за это сошьёшь мою норму сегодня. Сам я руки не гну.»`,
+    choices: [
+      { label: 'Согласиться (шить за двоих)', next: 'agree_deed' },
+      { label: 'Отказаться', next: 'refuse_deed' },
+      { label: 'Попросить помочь с адвокатом', next: 'ask_lawyer_deed' }
+    ]
+  },
+
+  agree_deed: {
+    text: 'Дед: «Договорились. Вечером получишь свёрток».',
+    onEnter: (s) => { s.helped_deed = true; },
+    next: 'obe4_work_note'
+  },
+
+  refuse_deed: {
+    text: 'Дед пожимает плечами: «Как хочешь».',
+    next: 'lunch'
+  },
+
+  ask_lawyer_deed: {
+    text: 'Дед кряхтит: «Нет, внучок, это не ко мне».',
+    next: 'lunch'
+  },
+
+  obe4_work_note: {
+    text: `(После обеда охранник Петров замечает, что вы шьёте быстрее обычного.)
+
+Петров: «Ты чего, швея-мотористка? Работай как все».
+
+Ничего страшного, но он будет присматривать.`,
+    next: 'lunch'
+  },
+
+  lunch: {
+    text: `[11:00] Столовая. Капустный суп.
+
+К вам подсаживается рыжий парень — бывший бухгалтер, кличка Рыжий.
+
+Рыжий шёпотом: «Слышал, ищешь справедливость? У меня есть контакт адвоката Смирнова. Он единственный, кто вытаскивал невиновных. Пиши на клочке: "Хочу встречи" — и сунь под третью плиту в прачечной. Смирнов приедет через три дня, но только если передашь 200 рублей за визит. Без денег не появится».`,
+    choices: [
+      { label: 'Спросить про побег', next: 'ask_escape' },
+      { label: 'Поблагодарить и замолчать', next: 'after_lunch' }
+    ]
+  },
+
+  ask_escape: {
+    text: `Рыжий оглядывается: «Говорят, пять лет назад один попытался. Собаку не усыпил — загрызли. Нужна таблетка для собаки, её Ветров продаёт за 300. И расписание смен охраны... Это сложно, надо с ночным дежурным дружить».`,
+    next: 'after_lunch'
+  },
+
+  after_lunch: {
+    text: '...',
+    onEnter: (s) => { s.s_contact_lawyer = true; },
+    next: 'work_prison'
+  },
+
+  work_prison: {
+    text: `[11:30] Прачечная. Грохот барабанов. Рядом работает зэк по кличке Хромой.
+
+Хромой жалуется: «Помоги донести бельё до склада, нога болит».`,
+    choices: [
+      { label: 'Помочь Хромому', next: 'help_hromoy' },
+      { label: 'Отказать', next: 'refuse_hromoy' },
+      { label: 'Спросить: «научи не дышать под водой»', next: 'ask_diving' }
+    ]
+  },
+
+  help_hromoy: {
+    text: `Вы помогаете час. Хромой благодарит и показывает потайную нишу в стене склада.
+
+Хромой: «Здесь старые дела заключённых. Можно найти доказательства. Только без охраны приходи».
+
++ Получена подсказка: доказательства в нише
+
+(Позже охранник Ветров замечает, что вы знаете нишу.)
+
+Ветров подходит и шепчет: «Забудь про нишу. Или мне доложишь — тогда я тебя через месяц выпущу... за 500. Врёшь? А вообще, если нужна таблетка для собаки — завтра на прогулке в дальнем углу. С собой имей 300».`,
+    onEnter: (s) => { s.s_proof_hint = true; },
+    next: 'yard'
+  },
+
+  refuse_hromoy: {
+    text: 'Хромой обижается: «Эх, люди...»',
+    next: 'yard'
+  },
+
+  ask_diving: {
+    text: 'Хромой смеётся: «Ты сначала ногу себе сломай, как я, тогда научу».',
+    next: 'yard'
+  },
+
+  yard: {
+    text: (s) => s.helped_deed
+      ? `[16:00] Двор с бетонным колодцем. По периметру вышки. Собака Гром бегает вдоль сетки.
+
+Дед подходит и протягивает свёрток: «Держи, парень. За работу спасибо. Только смотри, если попадёшься — я не при делах».`
+      : `[16:00] Двор с бетонным колодцем. По периметру вышки. Собака Гром бегает вдоль сетки.`,
+    choices: [
+      {
+        label: 'Взять отмычку',
+        next: 'after_pick',
+        condition: (s) => s.helped_deed && !s.has_pick,
+        onSelect: (s) => { s.has_pick = true; }
+      },
+      { label: 'Продолжить', next: 'yard_actions' }
+    ]
+  },
+
+  after_pick: {
+    text: 'Отмычка теперь у вас.',
+    next: 'yard_actions'
+  },
+
+  yard_actions: {
+    text: 'Выберите, что делать на прогулке:',
+    choices: [
+      { label: 'Подойти к Петрову', next: 'talk_petrov' },
+      { label: 'Подойти к Ветрову', next: 'talk_vetrov' },
+      { label: 'Поговорить с Бакланом о расписании', next: 'talk_baklan' },
+      { label: 'Ничего не делать', next: 'dinner' }
+    ]
+  },
+
+  talk_petrov: {
+    text: `Петров: «Чего надо?»
+
+Вы: «Хочу передать письмо адвокату... поможешь?»
+
+Петров: «Сотню баксов — и пиши. Но если меньше — шефу настучаю. Выбирай».
+
+У вас нет денег.`,
+    choices: [{ label: 'Уйти', next: 'dinner' }]
+  },
+
+  talk_vetrov: {
+    text: 'Ветров: «Чего тыкаешься? Если за таблеткой — 300. Но сегодня товар кончился. Приходи завтра».',
+    choices: [{ label: 'Уйти', next: 'dinner' }]
+  },
+
+  talk_baklan: {
+    text: 'Баклан: «Расписание смен стоит 50. Принесёшь — скажу, когда ночной дежурный спит».',
+    choices: [{ label: 'Уйти', next: 'dinner' }]
+  },
+
+  dinner: {
+    text: `[17:00] Ужин. Баланда, кусок масла, компот.
+
+Рыжий (бухгалтер) подходит: «Слушай, ты шьёшь хорошо. Мне нужен помощник на завтра — перешить форму охранника. Заплачу 20 рублей. Сделаешь?»`,
+    choices: [
+      { label: 'Согласиться', next: 'agree_ryzhiy_20' },
+      { label: 'Отказаться', next: 'refuse_ryzhiy' },
+      { label: 'Поторговаться на 30', next: 'bargain_ryzhiy' }
+    ]
+  },
+
+  agree_ryzhiy_20: {
+    text: 'Рыжий: «Договорились. Завтра в работе в камере».',
+    onEnter: (s) => { s.money += 20; s.agreed_ryzhiy = 20; },
+    next: 'evening_cell'
+  },
+
+  refuse_ryzhiy: {
+    text: 'Рыжий пожимает плечами и уходит.',
+    next: 'evening_cell'
+  },
+
+  bargain_ryzhiy: {
+    text: 'Рыжий: «Давай 25 — и по рукам».',
+    choices: [
+      {
+        label: 'Согласиться на 25',
+        next: 'evening_cell',
+        onSelect: (s) => { s.money += 25; s.agreed_ryzhiy = 25; }
+      },
+      { label: 'Настаивать на 30', next: 'insist_30' }
+    ]
+  },
+
+  insist_30: {
+    text: 'Рыжий: «Жадный ты. Ищи другого». И уходит.',
+    next: 'evening_cell'
+  },
+
+  evening_cell: {
+    text: `[19:00] Молитва и чтение книг в камере.
+
+Вы один. На тумбочке Библия и томик Достоевского.`,
+    choices: [
+      { label: 'Читать Библию', next: 'pray_bible' },
+      { label: 'Читать Достоевского (найти план тюрьмы)', next: 'read_dostoevsky' },
+      { label: 'Тренироваться не дышать', next: 'train_breath' },
+      { label: 'Рискнуть и сбежать сейчас', next: 'risky_escape' }
+    ]
+  },
+
+  pray_bible: {
+    text: 'Вы прочитали молитву. +1 к праведности (Покаяние).',
+    onEnter: (s) => { s.prayer_count = 1; },
+    next: 'end_day1'
+  },
+
+  read_dostoevsky: {
+    text: `Вы находите старый план тюрьмы, нарисованный на полях. Отмечена водопроводная труба к внешней стене.
+
++ Получена информация о подкопе`,
+    next: 'end_day1'
+  },
+
+  train_breath: {
+    text: 'Задержка дыхания. Тренировка тела 1/3 (Побег).',
+    onEnter: (s) => { s.trained_body = 1; },
+    next: 'end_day1'
+  },
+
+  risky_escape: {
+    text: (s) => s.has_pick
+      ? `Вы пробуете открыть замок. Но у вас нет расписания смен, таблетки для собаки.
+
+На посту Петров. Слышит шум, вызывает подмогу.`
+      : 'У вас даже нет отмычки. Бессмысленно.',
+    next: (s) => s.has_pick ? 'bad_end_escape' : 'end_day1'
+  },
+
+  bad_end_escape: {
+    text: 'Попытка побега без подготовки провалилась. Вас ведут в подвал.',
+    ending: true,
+    endingTitle: 'GAME OVER · Расстрел в первый же день'
+  },
+
+  end_day1: {
+    text: `[Итог дня 1]
+Состояние:
+· Деньги: {money}
+· Отмычка: {has_pick}
+· Молитвы: {prayer_count}/3
+· Тренировка тела: {trained_body}/3
+· Контакт с адвокатом: {s_contact_lawyer}
+· Подсказка о доказательствах: {s_proof_hint}
+
+Следующий день откроет новые возможности.`,
+    ending: true,
+    endingTitle: 'Конец первого дня'
+  }
+};
+
+/* ============================================================
+   РЕНДЕР
+   ============================================================ */
+
+const textEl = document.getElementById('text');
+const choicesEl = document.getElementById('choices');
+const endingTitleEl = document.getElementById('ending-title');
+
+function showScene(id) {
+  const scene = scenes[id];
+  if (!scene) {
+    console.warn('Нет сцены:', id);
+    return;
+  }
+
+  if (scene.onEnter) scene.onEnter(state);
+
+  const rawText = typeof scene.text === 'function' ? scene.text(state) : (scene.text || '');
+  const text = interpolate(rawText, state);
+
+  // анимация выхода
+  textEl.style.opacity = '0';
+  endingTitleEl.style.opacity = '0';
+  choicesEl.innerHTML = '';
+  textEl.scrollTop = 0;
+
+  setTimeout(() => {
+    if (scene.ending && scene.endingTitle) {
+      endingTitleEl.textContent = scene.endingTitle;
+      endingTitleEl.style.opacity = '1';
+    } else {
+      endingTitleEl.textContent = '';
+    }
+
+    textEl.textContent = text;
+    textEl.style.opacity = '1';
+
+    setTimeout(() => {
+      // финальная сцена — только «Начать заново»
+      if (scene.ending) {
+        const btn = document.createElement('button');
+        btn.className = 'choice restart';
+        btn.textContent = 'Начать заново';
+        btn.addEventListener('click', () => {
+          state = initialState();
+          showScene('start');
+        });
+        choicesEl.appendChild(btn);
+        return;
+      }
+
+      // обычные варианты
+      const items = [];
+      if (scene.choices) {
+        for (const c of scene.choices) {
+          if (c.condition && !c.condition(state)) continue;
+          items.push(c);
+        }
+      }
+      if (scene.next) {
+        const nextId = typeof scene.next === 'function' ? scene.next(state) : scene.next;
+        items.push({ label: 'Продолжить', next: nextId });
+      }
+
+      items.forEach((c, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'choice';
+        btn.textContent = c.label;
+        btn.style.animationDelay = (i * 0.06) + 's';
+        btn.addEventListener('click', () => {
+          if (c.onSelect) c.onSelect(state);
+          showScene(c.next);
+        });
+        choicesEl.appendChild(btn);
+      });
+    }, 300);
+  }, 150);
+}
+
+showScene('start');
+</script>
+</body>
+</html>
