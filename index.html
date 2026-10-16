@@ -110,7 +110,7 @@
 </style>
 </head>
 <body>
-    
+    <div id="background"></div>
   <div id="game">
     <div id="ending-title"></div>
     <p id="text"></p>
@@ -476,7 +476,7 @@ function showScene(id) {
     return;
   }
   // смена фона
-  if (scene.bg) {
+  if (scene.bg && bgEl) {
     bgEl.style.opacity = '0';
     setTimeout(() => {
       bgEl.style.backgroundImage = `url('images/${scene.bg}')`;
